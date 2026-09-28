@@ -74,7 +74,7 @@ export function ItemSheet(props: {
   const { target } = props;
   const [line, setLine] = useState<CartItem | null>(null);
   const [showErrors, setShowErrors] = useState(false);
-  const groupRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const groupRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
     if (!target) return;
