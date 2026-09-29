@@ -92,7 +92,7 @@ function DineInGate({ token }: { token: string }) {
 }
 
 function DineInPage() {
-  const { cart, setCart, waiterCall, bill, money, ordersTaken } = useDineIn();
+  const { cart, setCart, waiterCall, bill, money, ordersTaken, menu } = useDineIn();
   const [tab, setTab] = useState("menu");
   const [target, setTarget] = useState<ItemSheetTarget | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
