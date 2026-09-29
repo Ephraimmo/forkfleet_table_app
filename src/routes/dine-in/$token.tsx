@@ -110,9 +110,7 @@ function DineInPage() {
     if (item) setTarget({ item, index, line });
   };
 
-  // Rebuild a MenuItem-ish target for editing: ItemSheet only needs the item
-  // for its header and options; the line already carries the choices.
-  const { menu } = useDineIn();
+  // Editing a cart line reopens the item's sheet with the line's choices.
   const findMenuItem = (itemId: string): MenuItem | null =>
     menu.items.find((i) => i.id === itemId) ?? null;
 
