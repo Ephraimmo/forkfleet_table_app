@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ClientOnly, createFileRoute } from "@tanstack/react-router";
 import { BellRing, Loader2, ReceiptText, ShoppingBag, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
@@ -8,15 +8,12 @@ import { cn } from "@/lib/utils";
 import {
   cartTotals,
   formatMoney,
+  tryAutoRedirectToRealBrowser,
   type CartItem,
   type MenuItem,
   type PlaceOrderResult,
 } from "@/lib/dine-in";
-import {
-  DineInProvider,
-  useDineIn,
-  useDineInStartup,
-} from "@/components/dine-in/context";
+import { DineInProvider, useDineIn, useDineInStartup } from "@/components/dine-in/context";
 import { TableHeader } from "@/components/dine-in/TableHeader";
 import { MenuTab } from "@/components/dine-in/MenuTab";
 import { BillTab } from "@/components/dine-in/BillTab";
@@ -31,14 +28,12 @@ export const Route = createFileRoute("/dine-in/$token")({
       { title: "Hearth Dine-in — Order from your table" },
       {
         name: "description",
-        content:
-          "Browse the menu, order, and call a waiter from your phone — no app, no waiting.",
+        content: "Browse the menu, order, and call a waiter from your phone — no app, no waiting.",
       },
       { property: "og:title", content: "Hearth Dine-in — Order from your table" },
       {
         property: "og:description",
-        content:
-          "Browse the menu, order, and call a waiter from your phone — no app, no waiting.",
+        content: "Browse the menu, order, and call a waiter from your phone — no app, no waiting.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -49,6 +44,15 @@ export const Route = createFileRoute("/dine-in/$token")({
 
 function DineInRoute() {
   const { token } = Route.useParams();
+
+  // EARLY AUTO-REDIRECT: if the user arrived via a scanner / in-app browser
+  // that wipes storage on close, hand them off to a real browser
+  // (Safari on iPhone, Chrome on Android) *before* we load anything else.
+  // This runs as soon as the component mounts, outside ClientOnly.
+  useEffect(() => {
+    tryAutoRedirectToRealBrowser();
+  }, []);
+
   return (
     <ClientOnly
       fallback={
@@ -65,6 +69,15 @@ function DineInRoute() {
 function DineInGate({ token }: { token: string }) {
   const startup = useDineInStartup(token);
   const [promptTick, setPromptTick] = useState(0);
+
+  // If the first-attempt redirect didn't fire (e.g. persistence load showed
+  // we're still inside the scanner after state loaded), retry once with the
+  // recovery fragment now populated.
+  useEffect(() => {
+    if (startup.status === "ready" && startup.persistence) {
+      tryAutoRedirectToRealBrowser();
+    }
+  }, [startup.status]);
 
   if (startup.status === "error" && startup.error?.pending) {
     const p = startup.error.pending;

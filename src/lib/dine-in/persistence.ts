@@ -524,22 +524,196 @@ export function parseFragment(): PersistenceState | null {
 
 /* ============================================ recovery URL for "open in browser" */
 
-export function buildOpenInBrowserUrl(target: "safari" | "chrome"): string {
+export type RealBrowserTarget = "safari" | "chrome" | "firefox" | "edge" | "samsung" | "opera";
+
+const isIOS = (): boolean => /iphone|ipad|ipod/i.test(ua());
+const isAndroid = (): boolean => /android/i.test(ua());
+
+function plainRecoveryUrl(): string {
   const recovery = buildRecoveryFragment(currentCache, currentCache?.scan_history[0]?.token);
   try {
     const url = new URL(window.location.href);
     if (recovery) url.hash = recovery;
-    const href = url.toString();
-    if (target === "safari") return href;
-    if (target === "chrome") {
-      if (/iphone|ipad|ipod/i.test(ua())) {
-        return `googlechrome://${href.replace(/^https?:\/\//, "")}`;
-      }
-      return href;
-    }
-    return href;
+    return url.toString();
   } catch {
     return window.location.href;
+  }
+}
+
+/**
+ * Build the deep-link URL that opens the current page directly inside the
+ * target real browser (not inside the scanner in-app webview). Each browser
+ * registers its own URL scheme on iOS; on Android we fall back to the plain
+ * URL and let Intent-based launches handle it.
+ */
+export function buildOpenInBrowserUrl(target: RealBrowserTarget): string {
+  const href = plainRecoveryUrl();
+  const stripped = href.replace(/^https?:\/\//, "");
+  if (isIOS()) {
+    switch (target) {
+      case "safari":
+        return href;
+      case "chrome":
+      case "edge":
+        // googlechrome://, microsoft-edge-https:// schemes
+        const scheme = target === "chrome" ? "googlechromes" : "microsoft-edge-https";
+        return `${scheme}://${stripped}`;
+      case "firefox":
+        return `firefox://open-url?url=${encodeURIComponent(href)}`;
+      case "opera":
+        return `opera-https://${stripped}`;
+      case "samsung":
+        // No known custom scheme on iOS; fall through to a normal link.
+        return href;
+    }
+  }
+  // Android (and everywhere else): the plain URL; Android's intent chooser
+  // will offer Chrome, Samsung Browser, etc. and the user's default will
+  // retain storage.
+  return href;
+}
+
+/**
+ * Pick the best real browser available on the current platform. We prefer
+ * browsers that definitely keep durable storage (not in-app WebViews):
+ *   iOS      → Safari (only true browser on iOS; Chrome/Firefox on iOS still
+ *              use WKWebView, so Safari is the safest bet)
+ *   Android  → Chrome
+ *   other    → null (let the user's default handle it)
+ */
+export function primaryRealBrowser(): RealBrowserTarget | null {
+  if (isIOS()) return "safari";
+  if (isAndroid()) return "chrome";
+  return null;
+}
+
+/**
+ * Android-only: build an Intent URI that lets Android's Intent system open
+ * Chrome (or the user's default browser) directly, bypassing the in-app
+ * WebView entirely. Uses the Intent: scheme documented at
+ * https://developer.chrome.com/docs/multidevice/android/intents
+ */
+function buildAndroidIntentUrl(browserHint?: RealBrowserTarget): string | null {
+  if (!isAndroid()) return null;
+  const href = plainRecoveryUrl();
+  const packageName =
+    browserHint === "samsung"
+      ? "com.sec.android.app.sbrowser"
+      : browserHint === "firefox"
+        ? "org.mozilla.firefox"
+        : browserHint === "opera"
+          ? "com.opera.browser"
+          : "com.android.chrome";
+  // Intent scheme: Intent://<host>/path#Intent;package=...;scheme=https;end
+  const plain = href.replace(/^https?:\/\//, "");
+  return `intent://${plain}#Intent;package=${packageName};scheme=https;end`;
+}
+
+export interface AutoRedirectResult {
+  redirected: boolean;
+  target: RealBrowserTarget | null;
+  reason: string;
+}
+
+const REDIRECT_COOKIE = "hearth-dine-in:redirected:v1";
+const REDIRECT_COOKIE_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * When we are running inside a scanner/in-app browser, attempt to hand the
+ * page off to a real browser that retains storage. Flow:
+ *   1. Skip completely if we're already in a real browser / PWA.
+ *   2. Skip if the user has already been redirected in the last 10 minutes
+ *      (avoid bouncing between apps if the real browser can't open).
+ *   3. On Android → try the Intent URI first (strongest signal for bypassing
+ *      in-app WebViews), fall back to googlechrome:// then plain https.
+ *   4. On iOS → launch safari via https (which Safari takes as default) or
+ *      googlechrome:// if configured.
+ *   5. After launching, set the redirect cookie so returning into the scanner
+ *      browser doesn't redirect-loop.
+ *
+ * Returns a result describing what happened; the caller can still fall back
+ * to showing the prompt if redirect === false.
+ */
+export function tryAutoRedirectToRealBrowser(
+  preferredTarget?: RealBrowserTarget,
+): AutoRedirectResult {
+  try {
+    if (!isScannerBrowser()) {
+      return { redirected: false, target: null, reason: "not-in-scanner-browser" };
+    }
+    if (isStandaloneOrNative()) {
+      return { redirected: false, target: null, reason: "already-pwa" };
+    }
+    try {
+      if (document.cookie?.split(";").some((c) => c.trim().startsWith(REDIRECT_COOKIE + "="))) {
+        return { redirected: false, target: null, reason: "recently-redirected" };
+      }
+    } catch {
+      /* cookies disabled; proceed anyway */
+    }
+
+    const target = preferredTarget ?? primaryRealBrowser();
+    if (!target) {
+      return { redirected: false, target: null, reason: "no-known-target" };
+    }
+
+    // Stamp the redirect guard before navigating — if the deep-link fails
+    // and we land back here, we won't loop.
+    try {
+      const expires = new Date(Date.now() + REDIRECT_COOKIE_TTL_MS).toUTCString();
+      document.cookie = `${REDIRECT_COOKIE}=1; expires=${expires}; SameSite=Lax`;
+    } catch {
+      /* ignore */
+    }
+
+    const urls: string[] = [];
+    if (isAndroid()) {
+      const intent = buildAndroidIntentUrl(target);
+      if (intent) urls.push(intent);
+    }
+    urls.push(buildOpenInBrowserUrl(target));
+    if (target !== "safari") urls.push(plainRecoveryUrl());
+
+    // Attempt each URL in order. setTimeout guarantees we don't only run one.
+    let launched = false;
+    urls.forEach((url, i) => {
+      setTimeout(() => {
+        try {
+          if (i === 0) {
+            window.location.assign(url);
+            launched = true;
+          } else {
+            // Fallbacks: iframe + window.open tricks to bypass some scanners
+            try {
+              window.location.href = url;
+            } catch {
+              /* ignore */
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+      }, i * 50);
+    });
+
+    // If nothing launches within ~250ms, the caller will show the prompt.
+    setTimeout(() => {
+      if (!launched) {
+        try {
+          window.open(urls[0], "_blank", "noopener");
+        } catch {
+          /* ignore */
+        }
+      }
+    }, 220);
+
+    return { redirected: true, target, reason: "launched" };
+  } catch (e) {
+    return {
+      redirected: false,
+      target: null,
+      reason: `error:${(e as Error)?.message ?? "unknown"}`,
+    };
   }
 }
 

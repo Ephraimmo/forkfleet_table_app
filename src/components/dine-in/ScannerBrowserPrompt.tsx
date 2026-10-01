@@ -18,11 +18,14 @@ import {
   detectBrowser,
   dismissScannerPrompt,
   isScannerBrowser,
+  primaryRealBrowser,
   recommendOpenIn,
   shouldShowScannerPrompt,
+  tryAutoRedirectToRealBrowser,
   _setCacheForBuild,
   type BrowserEnvironment,
   type PersistenceState,
+  type RealBrowserTarget,
 } from "@/lib/dine-in";
 
 interface ScannerPromptProps {
@@ -51,7 +54,7 @@ const ENV_LABEL: Record<BrowserEnvironment, string> = {
   other: "this app",
 };
 
-function shareTargetUrl(target: "safari" | "chrome"): string {
+function shareTargetUrl(target: RealBrowserTarget): string {
   try {
     return buildOpenInBrowserUrl(target);
   } catch {
@@ -63,7 +66,7 @@ export function ScannerBrowserPrompt({ state, onDismissed }: ScannerPromptProps)
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const env = detectBrowser();
-  const target = recommendOpenIn();
+  const target = recommendOpenIn() ?? primaryRealBrowser();
 
   useEffect(() => {
     _setCacheForBuild(state);
@@ -73,13 +76,28 @@ export function ScannerBrowserPrompt({ state, onDismissed }: ScannerPromptProps)
   if (!isScannerBrowser() || !target || !open) return null;
 
   const envLabel = ENV_LABEL[env] ?? "this app";
-  const targetLabel = target === "safari" ? "Safari" : "Chrome";
+  const targetLabel =
+    target === "safari"
+      ? "Safari"
+      : target === "chrome"
+        ? "Chrome"
+        : target === "edge"
+          ? "Edge"
+          : target === "firefox"
+            ? "Firefox"
+            : target === "opera"
+              ? "Opera"
+              : "Samsung Browser";
 
   const handleOpenDirect = () => {
     try {
-      window.location.assign(shareTargetUrl(target));
+      tryAutoRedirectToRealBrowser(target);
     } catch {
-      /* ignore */
+      try {
+        window.location.assign(shareTargetUrl(target));
+      } catch {
+        /* ignore */
+      }
     }
   };
 
