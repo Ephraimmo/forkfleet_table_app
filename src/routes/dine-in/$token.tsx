@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { cartTotals, type CartItem, type MenuItem, type PlaceOrderResult } from "@/lib/dine-in";
+import { cartTotals, formatMoney, type CartItem, type MenuItem, type PlaceOrderResult } from "@/lib/dine-in";
 import { DineInProvider, useDineIn, useDineInStartup } from "@/components/dine-in/context";
 import { TableHeader } from "@/components/dine-in/TableHeader";
 import { MenuTab } from "@/components/dine-in/MenuTab";
@@ -53,6 +53,41 @@ function DineInRoute() {
 
 function DineInGate({ token }: { token: string }) {
   const startup = useDineInStartup(token);
+
+  if (startup.status === "error" && startup.error?.pending) {
+    const p = startup.error.pending;
+    return (
+      <div className="flex min-h-dvh items-center justify-center px-6">
+        <div className="w-full max-w-sm text-center">
+          <ReceiptText className="mx-auto size-10 text-primary" />
+          <h1 className="mt-4 text-xl font-semibold">You already have an order waiting</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{startup.error.message}</p>
+          <div className="mt-5 rounded-xl border border-border p-4 text-left text-sm">
+            <div className="flex justify-between font-medium">
+              <span>{p.table_name}</span>
+              <span>{p.order_number}</span>
+            </div>
+            <p className="mt-1 text-muted-foreground">{p.status.replace(/_/g, " ")}</p>
+            <ul className="mt-3 space-y-1">
+              {p.items.map((it, i) => (
+                <li key={i} className="flex justify-between">
+                  <span>{it.name}</span>
+                  <span className="text-muted-foreground">×{it.quantity}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-3 flex justify-between border-t border-border pt-2 font-semibold">
+              <span>Total</span>
+              <span>{formatMoney(p.total)}</span>
+            </div>
+          </div>
+          <Button className="mt-6 w-full rounded-xl" onClick={() => window.location.assign(`/dine-in/${p.token}`)}>
+            Back to {p.table_name}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (startup.status === "error") {
     return (

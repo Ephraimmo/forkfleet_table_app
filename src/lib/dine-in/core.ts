@@ -22,15 +22,19 @@ export type DineInErrorCode =
   | "dine-in/table-not-found"
   | "dine-in/invalid-items"
   | "dine-in/not-signed-in"
+  | "dine-in/order-elsewhere" // an order is still on its way at another table
   | "dine-in/unavailable"; // network or Firebase trouble
 
 /** Every error the data layer throws or reports. `message` is ready to show to the guest. */
 export class DineInError extends Error {
   readonly code: DineInErrorCode;
-  constructor(code: DineInErrorCode, message: string) {
+  /** Set for "dine-in/order-elsewhere": the order at the other table. */
+  readonly pending: PendingElsewhere | null;
+  constructor(code: DineInErrorCode, message: string, pending: PendingElsewhere | null = null) {
     super(message);
     this.name = "DineInError";
     this.code = code;
+    this.pending = pending;
   }
 }
 
@@ -145,6 +149,74 @@ export function currentUid(): string {
 
 /* ===================================================== sign-in and the table */
 
+/** The order still in progress at another table, shown when a guest scans a second table. */
+export interface PendingElsewhere {
+  token: string;
+  table_name: string;
+  order_number: string;
+  status: string;
+  total: number;
+  items: Array<{ name: string; quantity: number }>;
+}
+
+/** Statuses after which the guest is free to move to another table. */
+const FINISHED_STATUSES = ["delivered", "served", "completed", "rejected", "cancelled", "refunded"];
+
+/**
+ * A guest whose order is still on its way at one table can't open another:
+ * they'd lose track of it. Reads the guest's current pass (still pointing at
+ * the old table, so the rules let them read it) and their seat's order there.
+ */
+async function assertNoOrderElsewhere(uid: string, token: string, tableId: string) {
+  let pending: PendingElsewhere | null = null;
+  try {
+    const pass = await getDoc(doc(db, "dineInGuests", uid));
+    if (!pass.exists()) return;
+    const p = pass.data();
+    const oldToken = str(p["token"]);
+    const oldRestaurant = str(p["restaurant_id"]);
+    const oldTable = str(p["table_id"]);
+    if (oldToken === token || oldTable === tableId) return;
+    if (!SAFE_ID.test(oldRestaurant) || !SAFE_ID.test(oldTable)) return;
+    const tableSnap = await getDoc(doc(db, "restaurants", oldRestaurant, "tables", oldTable));
+    if (!tableSnap.exists()) return;
+    const t = tableSnap.data();
+    if (str(t["qr_token"]) && str(t["qr_token"]) !== oldToken) return; // old code was replaced
+    const session = isMap(t["session"]) ? t["session"] : null;
+    if (!session || !isMap(session["guests"])) return;
+    const last = Date.parse(str(session["last_activity_at"]) || str(session["opened_at"]));
+    if (!Number.isFinite(last) || Date.now() - last > SESSION_IDLE_TIMEOUT_MS) return;
+    const seat = (session["guests"] as Raw)[uid];
+    if (!isMap(seat)) return;
+    const orderId = str(seat["current_order_id"]) || str(session["current_order_id"]);
+    if (!SAFE_ID.test(orderId)) return;
+    const orderSnap = await getDoc(doc(db, "orders", orderId));
+    if (!orderSnap.exists()) return;
+    const o = orderSnap.data();
+    const status = str(o["status"]);
+    if (!status || FINISHED_STATUSES.includes(status)) return;
+    pending = {
+      token: oldToken,
+      table_name: tableDisplayName(str(t["label"]) || oldTable),
+      order_number: str(o["order_number"]),
+      status,
+      total: num(o["total"]),
+      items: Object.values(isMap(o["items"]) ? o["items"] : {})
+        .filter(isMap)
+        .map((l) => ({ name: str(l["name"]), quantity: count(l["quantity"]) })),
+    };
+  } catch (e) {
+    console.warn("[dine-in] couldn't check the previous table", e);
+    return;
+  }
+  throw new DineInError(
+    "dine-in/order-elsewhere",
+    `You already have an order waiting at ${pending.table_name}. Please stay there until it's served, or ask a member of staff.`,
+    pending,
+  );
+}
+
+
 /**
  * Sign the guest in anonymously, or reuse the session this browser already
  * has. The uid is the guest's identity at the table ("Customer 2"), so a
@@ -188,6 +260,7 @@ export async function openTable(token: string): Promise<TableContext> {
     const restaurant_id = str(r["restaurant_id"]);
     const table_id = str(r["table_id"]);
     if (!SAFE_ID.test(restaurant_id) || !SAFE_ID.test(table_id)) throw invalidCode();
+    await assertNoOrderElsewhere(uid, token, table_id);
     await setDoc(doc(db, "dineInGuests", uid), {
       token,
       restaurant_id,
