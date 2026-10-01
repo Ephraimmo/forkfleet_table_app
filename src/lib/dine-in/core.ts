@@ -209,6 +209,7 @@ async function assertNoOrderElsewhere(uid: string, token: string, tableId: strin
     console.warn("[dine-in] couldn't check the previous table", e);
     return;
   }
+  if (!pending) return;
   throw new DineInError(
     "dine-in/order-elsewhere",
     `You already have an order waiting at ${pending.table_name}. Please stay there until it's served, or ask a member of staff.`,
