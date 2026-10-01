@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   MAX_NOTE,
+  callWaiter,
   cartTotals,
   describeLineOptions,
   lineTotal,
@@ -49,6 +50,13 @@ export function CartSheet(props: {
       });
       clearCart();
       setInstructions("");
+      // Let the waiter know there's a new order to confirm. A failed call
+      // must not undo the order, so just log it.
+      callWaiter({
+        table,
+        message: `New order ${result.order_number} — please confirm`,
+        guestName: guestName || null,
+      }).catch((e) => console.warn("[dine-in] auto waiter call failed", e));
       props.onSent(result);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't send your order. Please try again.");
