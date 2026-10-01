@@ -24,10 +24,24 @@ import {
   type TableContext as Table,
   type TableState,
   type WaiterCall,
+  // --- persistence additions ---
+  _setCacheForBuild,
+  getCart,
+  loadState,
+  recordScan,
+  recordScanVisit,
+  rememberUid,
+  saveState,
+  setCart as persistenceSetCart,
+  setRecoveryFragmentIfScanner,
+  type PersistenceState,
+  type ScanRecord,
 } from "@/lib/dine-in";
 
 /* ------------------------------------------------------------ storage bits */
 
+// Legacy localStorage wrappers (kept so in-flight tab reloads still work; the
+// persistence layer is the canonical source of truth).
 const read = (key: string): string | null => {
   try {
     return localStorage.getItem(key);
@@ -83,6 +97,8 @@ interface DineInValue {
   guestName: string;
   setGuestName: (name: string) => void;
   money: (amount: number) => string;
+  persistence: PersistenceState;
+  scanHistory: ScanRecord[];
 }
 
 const Ctx = createContext<DineInValue | null>(null);
@@ -109,11 +125,45 @@ export function useDineInStartup(token: string) {
   const [tableState, setTableState] = useState<TableState | null>(null);
   const [bill, setBill] = useState<Bill | null>(null);
   const [error, setError] = useState<DineInError | null>(null);
+  const [persistence, setPersistence] = useState<PersistenceState | null>(null);
+
+  // Load the cross-session persistence state before we do anything else so that
+  // even if Firebase anonymous auth was wiped, we can prime the UI with the
+  // guest's name and last-seen cart.
+  useEffect(() => {
+    let alive = true;
+    loadState().then((s) => {
+      if (alive) setPersistence(s);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const onLiveError = useCallback((e: DineInError) => {
     if (e.code === "dine-in/code-revoked" || e.code === "dine-in/table-not-found") setError(e);
     else toast.error(e.message);
   }, []);
+
+  // Capture the signed-in uid into persistence so we can recognise the guest
+  // (or at least offer a hint) even if Firebase storage is wiped later.
+  useEffect(() => {
+    if (!table || !persistence) return;
+    let alive = true;
+    (async () => {
+      try {
+        const uid = (await import("@/lib/dine-in")).currentUid();
+        const remembered = rememberUid(persistence, uid);
+        const next = await saveState({ guest_uid_hint: remembered.guest_uid_hint });
+        if (alive) setPersistence(next);
+      } catch {
+        /* not signed in yet — will retry on next change */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [table, persistence?.guest_uid_hint]);
 
   useEffect(() => {
     let alive = true;
@@ -129,11 +179,58 @@ export function useDineInStartup(token: string) {
       .then(async (ctx) => {
         if (!alive) return;
         setTable(ctx);
-        const info = await getRestaurant(ctx.restaurant_id);
+
+        // Record this scan in the persistence stack (localStorage + sessionStorage
+        // + IndexedDB), then append the recovery fragment to the URL so even a
+        // scanner-browser that wipes storage on close still carries enough info
+        // to recognise the guest on re-scan.
+        setPersistence((prev) => {
+          const base = prev ?? {
+            guest_name: null,
+            guest_uid_hint: null,
+            scan_history: [],
+            carts: {},
+            scanner_prompt_dismissed_at: null,
+          };
+          const seeded = getRestaurantCached(ctx.restaurant_id).then(async (info) => {
+            const state1 = recordScan(base, {
+              token: ctx.token,
+              restaurant_id: ctx.restaurant_id,
+              restaurant_name: info?.name ?? null,
+              table_id: ctx.table_id,
+              table_label: ctx.table_label,
+            });
+            const saved = await saveState({ scan_history: state1.scan_history });
+            setRecoveryFragmentIfScanner(saved, ctx.token);
+            _setCacheForBuild(saved);
+            setPersistence(saved);
+            return saved;
+          });
+          void seeded;
+          return base;
+        });
+
+        const info = await getRestaurantCached(ctx.restaurant_id);
         if (!alive) return;
         setRestaurant(info);
         stops.push(watchMenu(ctx.restaurant_id, setMenu, onLiveError));
-        stops.push(watchTable(ctx, setTableState, onLiveError));
+        stops.push(
+          watchTable(
+            ctx,
+            (s) => {
+              setTableState(s);
+              // Bump "last visited" every time the table live-state ticks so
+              // scan history reflects actual activity, not just the first scan.
+              setPersistence((prev) => {
+                if (!prev) return prev;
+                const visited = recordScanVisit(prev, ctx.token);
+                void saveState({ scan_history: visited.scan_history });
+                return visited;
+              });
+            },
+            onLiveError,
+          ),
+        );
         stops.push(watchBill(ctx, setBill, onLiveError));
       })
       .catch((e: unknown) => {
@@ -152,7 +249,7 @@ export function useDineInStartup(token: string) {
   }, [token, attempt, onLiveError]);
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
-  const ready = !!table && !!restaurant && !!menu;
+  const ready = !!table && !!restaurant && !!menu && !!persistence;
   return {
     status: error ? ("error" as const) : ready ? ("ready" as const) : ("loading" as const),
     error,
@@ -162,7 +259,22 @@ export function useDineInStartup(token: string) {
     menu,
     tableState,
     bill,
+    persistence,
   };
+}
+
+// Lightweight in-memory restaurant cache so we don't re-read it twice.
+const RESTAURANT_CACHE = new Map<string, Restaurant>();
+async function getRestaurantCached(id: string): Promise<Restaurant | null> {
+  const cached = RESTAURANT_CACHE.get(id);
+  if (cached) return cached;
+  try {
+    const info = await getRestaurant(id);
+    RESTAURANT_CACHE.set(id, info);
+    return info;
+  } catch {
+    return null;
+  }
 }
 
 export function DineInProvider(props: {
@@ -171,46 +283,83 @@ export function DineInProvider(props: {
   menu: Menu;
   tableState: TableState | null;
   bill: Bill | null;
+  persistence: PersistenceState;
   children: ReactNode;
 }) {
-  const { table, restaurant, menu, tableState, bill } = props;
+  const { table, restaurant, menu, tableState, bill, persistence: initialPersistence } = props;
   const [cart, setCartState] = useState<CartItem[]>([]);
   const [guestName, setGuestNameState] = useState("");
   const [waiterCall, setWaiterCall] = useState<WaiterCall | null>(null);
+  const [persistence, setPersistence] = useState<PersistenceState>(initialPersistence);
   const hydrated = useRef(false);
 
-  // Restore the cart and the name saved on this phone.
+  // Sync the persistence state from above (startup hook) into the provider so
+  // downstream components get live updates without a second read.
+  useEffect(() => {
+    setPersistence(initialPersistence);
+  }, [initialPersistence]);
+
+  // Restore the cart and the name — prefer the multi-layer persistence state,
+  // fall back to legacy localStorage keys so nothing is lost during the rollout.
   useEffect(() => {
     hydrated.current = false;
-    const raw = read(cartKey(table.token));
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) setCartState(parsed as CartItem[]);
-      } catch {
-        drop(cartKey(table.token));
-      }
+    const persistedCart = getCart<CartItem[]>(persistence, table.token);
+    if (persistedCart && Array.isArray(persistedCart)) {
+      setCartState(persistedCart);
     } else {
-      setCartState([]);
+      const raw = read(cartKey(table.token));
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) setCartState(parsed as CartItem[]);
+        } catch {
+          drop(cartKey(table.token));
+        }
+      } else {
+        setCartState([]);
+      }
     }
-    setGuestNameState(read(NAME_KEY) ?? "");
+    setGuestNameState(persistence.guest_name ?? read(NAME_KEY) ?? "");
     hydrated.current = true;
-  }, [table.token]);
+  }, [table.token, persistence.guest_name]);
 
+  // Persist the cart (to legacy localStorage as well as the new persistence
+  // stack that survives scanner-browser closes).
   useEffect(() => {
     if (!hydrated.current) return;
-    if (cart.length === 0) drop(cartKey(table.token));
-    else write(cartKey(table.token), JSON.stringify(cart));
+    if (cart.length === 0) {
+      drop(cartKey(table.token));
+    } else {
+      write(cartKey(table.token), JSON.stringify(cart));
+    }
+    setPersistence((prev) => {
+      const next = persistenceSetCart(prev, table.token, cart.length ? cart : null);
+      void saveState({ carts: next.carts });
+      return next;
+    });
   }, [cart, table.token]);
 
-  const setGuestName = useCallback((name: string) => {
-    setGuestNameState(name);
-    write(NAME_KEY, name);
-  }, []);
+  const setGuestName = useCallback(
+    (name: string) => {
+      setGuestNameState(name);
+      write(NAME_KEY, name);
+      setPersistence((prev) => {
+        const next = { ...prev, guest_name: name || null };
+        void saveState({ guest_name: next.guest_name });
+        return next;
+      });
+    },
+    [],
+  );
 
   const clearCart = useCallback(() => {
     setCartState([]);
     drop(cartKey(table.token));
+    setPersistence((prev) => {
+      const next = persistenceSetCart(prev, table.token, null);
+      void saveState({ carts: next.carts });
+      return next;
+    });
   }, [table.token]);
 
   // Follow this guest's waiter call, if they have one.
@@ -246,6 +395,8 @@ export function DineInProvider(props: {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         }).format(amount),
+      persistence,
+      scanHistory: persistence.scan_history,
     }),
     [
       table,
@@ -259,6 +410,7 @@ export function DineInProvider(props: {
       clearCart,
       guestName,
       setGuestName,
+      persistence,
     ],
   );
 

@@ -2,3 +2,4 @@
 export * from "./core";
 export * from "./menu";
 export * from "./orders";
+export * from "./persistence";

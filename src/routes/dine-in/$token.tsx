@@ -5,14 +5,25 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { cartTotals, formatMoney, type CartItem, type MenuItem, type PlaceOrderResult } from "@/lib/dine-in";
-import { DineInProvider, useDineIn, useDineInStartup } from "@/components/dine-in/context";
+import {
+  cartTotals,
+  formatMoney,
+  type CartItem,
+  type MenuItem,
+  type PlaceOrderResult,
+} from "@/lib/dine-in";
+import {
+  DineInProvider,
+  useDineIn,
+  useDineInStartup,
+} from "@/components/dine-in/context";
 import { TableHeader } from "@/components/dine-in/TableHeader";
 import { MenuTab } from "@/components/dine-in/MenuTab";
 import { BillTab } from "@/components/dine-in/BillTab";
 import { ItemSheet, type ItemSheetTarget } from "@/components/dine-in/ItemSheet";
 import { CartSheet } from "@/components/dine-in/CartSheet";
 import { WaiterSheet } from "@/components/dine-in/WaiterSheet";
+import { ScannerBrowserPrompt } from "@/components/dine-in/ScannerBrowserPrompt";
 
 export const Route = createFileRoute("/dine-in/$token")({
   head: () => ({
@@ -53,6 +64,7 @@ function DineInRoute() {
 
 function DineInGate({ token }: { token: string }) {
   const startup = useDineInStartup(token);
+  const [promptTick, setPromptTick] = useState(0);
 
   if (startup.status === "error" && startup.error?.pending) {
     const p = startup.error.pending;
@@ -81,7 +93,10 @@ function DineInGate({ token }: { token: string }) {
               <span>{formatMoney(p.total)}</span>
             </div>
           </div>
-          <Button className="mt-6 w-full rounded-xl" onClick={() => window.location.assign(`/dine-in/${p.token}`)}>
+          <Button
+            className="mt-6 w-full rounded-xl"
+            onClick={() => window.location.assign(`/dine-in/${p.token}`)}
+          >
             Back to {p.table_name}
           </Button>
         </div>
@@ -104,7 +119,13 @@ function DineInGate({ token }: { token: string }) {
     );
   }
 
-  if (startup.status !== "ready" || !startup.table || !startup.restaurant || !startup.menu) {
+  if (
+    startup.status !== "ready" ||
+    !startup.table ||
+    !startup.restaurant ||
+    !startup.menu ||
+    !startup.persistence
+  ) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-3 px-6">
         <Loader2 className="size-8 animate-spin text-muted-foreground" />
@@ -120,8 +141,13 @@ function DineInGate({ token }: { token: string }) {
       menu={startup.menu}
       tableState={startup.tableState}
       bill={startup.bill}
+      persistence={startup.persistence}
     >
-      <DineInPage />
+      <ScannerBrowserPrompt
+        state={startup.persistence}
+        onDismissed={() => setPromptTick((n) => n + 1)}
+      />
+      <DineInPage key={promptTick} />
     </DineInProvider>
   );
 }
