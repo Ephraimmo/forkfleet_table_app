@@ -532,6 +532,17 @@ const STATUS: Record<string, { label: string; step: number }> = {
   refunded: { label: "Refunded", step: -1 },
 };
 
+/** How the waiter took payment, as the console records it in dine_in.paid_with. */
+export type PaymentMethod = "cash" | "card" | "eft";
+
+const PAYMENT_METHODS: PaymentMethod[] = ["cash", "card", "eft"];
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  cash: "Cash",
+  card: "Card",
+  eft: "EFT / bank transfer",
+};
+
 export interface GuestOrderLine extends CartItem {
   id: string;
   line_total: number;
@@ -566,6 +577,15 @@ export interface GuestOrder {
   total: number;
   special_instructions: string | null;
   rejection_reason: string | null;
+  /**
+   * The waiter confirmed the table paid for this order (payment_status "paid",
+   * set by the console's "Confirm payment"). Live, like the status.
+   */
+  paid: boolean;
+  /** When, who took it ("John") and how. All null until paid. */
+  paid_at: string | null;
+  paid_by: string | null;
+  paid_with: PaymentMethod | null;
   placed_at: string;
   updated_at: string;
 }
@@ -574,6 +594,11 @@ function toGuestOrder(id: string, r: Raw, uid: string | null): GuestOrder {
   const d: Raw = isMap(r["dine_in"]) ? r["dine_in"] : {};
   const status = str(r["status"]);
   const known = STATUS[status] ?? { label: status.replace(/_/g, " "), step: -1 };
+  // New orders carry payment_method "card" as a placeholder, so only trust
+  // the method once the order is paid.
+  const paid = str(r["payment_status"]) === "paid";
+  const receipt: Raw = isMap(r["payment"]) ? r["payment"] : {};
+  const method = str(d["paid_with"]) || str(r["payment_method"]);
   const lines: GuestOrderLine[] = Object.values(isMap(r["items"]) ? r["items"] : {})
     .filter(isMap)
     .map((l) => ({
@@ -610,6 +635,11 @@ function toGuestOrder(id: string, r: Raw, uid: string | null): GuestOrder {
     total: num(r["total"]),
     special_instructions: strOrNull(r["special_instructions"]),
     rejection_reason: strOrNull(r["rejection_reason"]),
+    paid,
+    paid_at: paid ? strOrNull(d["paid_at"]) || strOrNull(receipt["paid_at"]) : null,
+    paid_by: paid ? strOrNull(d["paid_by"]) || strOrNull(receipt["recorded_by"]) : null,
+    paid_with:
+      paid && PAYMENT_METHODS.includes(method as PaymentMethod) ? (method as PaymentMethod) : null,
     placed_at: str(r["placed_at"]),
     updated_at: str(r["updated_at"]),
   };
@@ -641,6 +671,12 @@ export interface Bill {
   subtotal: number;
   service_fee: number;
   total: number;
+  /** Of the total, what the waiter has confirmed as paid. */
+  paid: number;
+  /** What's left to pay: total − paid. */
+  due: number;
+  /** Something was ordered and every billable order is paid. */
+  all_paid: boolean;
   /** Some order is still waiting, cooking or not yet served. */
   has_open_orders: boolean;
 }
@@ -670,13 +706,18 @@ export function watchBill(
           .sort((a, b) => a.placed_at.localeCompare(b.placed_at))
       : [];
     const billable = shown.filter((o) => o.step !== -1);
+    const total = round2(billable.reduce((s, o) => s + o.total, 0));
+    const paid = round2(billable.filter((o) => o.paid).reduce((s, o) => s + o.total, 0));
     onChange({
       seating_id: seating?.id ?? null,
       order_mode: state.order_mode,
       orders: shown,
       subtotal: round2(billable.reduce((s, o) => s + o.subtotal, 0)),
       service_fee: round2(billable.reduce((s, o) => s + o.service_fee, 0)),
-      total: round2(billable.reduce((s, o) => s + o.total, 0)),
+      total,
+      paid,
+      due: round2(total - paid),
+      all_paid: billable.length > 0 && billable.every((o) => o.paid),
       has_open_orders: shown.some((o) => o.step >= 0 && o.step < 5),
     });
   };

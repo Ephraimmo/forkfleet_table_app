@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ClientOnly, createFileRoute } from "@tanstack/react-router";
 import { Bell, Loader2, ReceiptText, ShoppingBag, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
@@ -192,6 +192,21 @@ function DineInPage() {
   const orderCount = bill?.orders.length ?? 0;
   const waiterWaiting = waiterCall !== null && waiterCall.status !== "resolved";
   const waiterAccepted = waiterCall?.status === "accepted";
+
+  // Say so the moment the waiter confirms a payment. Only orders seen unpaid
+  // first count, so opening the page on an already-paid bill stays quiet.
+  const paidBefore = useRef(new Map<string, boolean>());
+  useEffect(() => {
+    if (!bill) return;
+    const fresh = bill.orders.filter((o) => o.paid && paidBefore.current.get(o.id) === false);
+    for (const o of bill.orders) paidBefore.current.set(o.id, o.paid);
+    if (fresh.length === 0) return;
+    toast.success(
+      bill.all_paid
+        ? "Payment received — thank you! Your bill is settled."
+        : `Payment received for ${fresh.map((o) => o.order_number).join(", ")}`,
+    );
+  }, [bill]);
 
   const pickItem = (item: MenuItem) => setTarget({ item });
   const editLine = (line: CartItem, index: number) => {

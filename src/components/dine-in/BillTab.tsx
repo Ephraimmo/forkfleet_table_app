@@ -1,20 +1,22 @@
-import { ConciergeBell, ReceiptText, Users } from "lucide-react";
+import { CircleCheck, ConciergeBell, ReceiptText, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { describeLineOptions, type GuestOrder } from "@/lib/dine-in";
+import { PAYMENT_METHOD_LABELS, describeLineOptions, type GuestOrder } from "@/lib/dine-in";
 import { useDineIn } from "./context";
 import { GuestBadge, StatusBar, StatusPill } from "./ui";
 import { card, innerCard } from "./styles";
 import { sinceLabel, useNow } from "./time";
 
-function Stat(props: { value: number; label: string; tone: string }) {
-  return (
-    <div className={cn(card, "rounded-xl px-4 py-3.5")}>
-      <p className={cn("text-[32px] font-bold leading-none tabular-nums", props.tone)}>
-        {props.value}
-      </p>
-      <p className="mt-2 text-[15px] text-foreground/85">{props.label}</p>
-    </div>
-  );
+/** "Paid · Cash · taken by John · 2 min ago" */
+function paidLine(order: GuestOrder, now: number): string {
+  const ago = sinceLabel(order.paid_at, now);
+  return [
+    "Paid",
+    order.paid_with ? PAYMENT_METHOD_LABELS[order.paid_with] : null,
+    order.paid_by ? `taken by ${order.paid_by}` : null,
+    ago ? (ago === "just now" ? ago : `${ago} ago`) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function ReadyCard({ order, tableName }: { order: GuestOrder; tableName: string }) {
@@ -38,7 +40,8 @@ function ReadyCard({ order, tableName }: { order: GuestOrder; tableName: string 
   );
 }
 
-function OrderCard({ order, perGuest }: { order: GuestOrder; perGuest: boolean }) {
+function OrderCard(props: { order: GuestOrder; perGuest: boolean; now: number }) {
+  const { order, perGuest } = props;
   const { money } = useDineIn();
   return (
     <section className={cn(innerCard, "p-3")}>
@@ -106,6 +109,13 @@ function OrderCard({ order, perGuest }: { order: GuestOrder; perGuest: boolean }
         <span className="text-[16px] font-semibold">Total</span>
         <span className="text-[17px] font-bold text-gold tabular-nums">{money(order.total)}</span>
       </div>
+
+      {order.paid ? (
+        <p className="mt-2.5 flex items-center gap-2 rounded-lg bg-success-soft px-3 py-2 text-[13px] font-medium text-success-text ring-1 ring-inset ring-success-line/40">
+          <CircleCheck className="size-4 shrink-0" />
+          {paidLine(order, props.now)}
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -135,27 +145,15 @@ export function BillTab() {
   const seating = tableState?.seating ?? null;
   const guests = seating ? Object.keys(seating.guests).length : 0;
   const seated = sinceLabel(seating?.opened_at, now);
-  const count = (pred: (o: GuestOrder) => boolean) => bill.orders.filter(pred).length;
   const ready = bill.orders.filter((o) => o.step === 4);
 
   return (
     <div className="space-y-4 px-4 py-4 pb-10">
-      <div className="grid grid-cols-2 gap-3">
-        <Stat value={bill.orders.length} label="Orders" tone="text-stat-blue" />
-        <Stat value={count((o) => o.step === 0)} label="To confirm" tone="text-stat-pink" />
-        <Stat value={ready.length} label="Ready" tone="text-stat-yellow" />
-        <Stat
-          value={count((o) => o.step >= 1 && o.step <= 3)}
-          label="In the kitchen"
-          tone="text-stat-purple"
-        />
-      </div>
-
       {ready.map((order) => (
         <ReadyCard key={order.id} order={order} tableName={tableName} />
       ))}
 
-      <h2 className="pt-2 text-[20px] font-semibold tracking-tight">
+      <h2 className="pt-1 text-[20px] font-semibold tracking-tight">
         {perGuest ? "Your orders" : "Table orders"}
       </h2>
 
@@ -182,35 +180,60 @@ export function BillTab() {
         </div>
         <div className="space-y-2.5">
           {bill.orders.map((order) => (
-            <OrderCard key={order.id} order={order} perGuest={perGuest} />
+            <OrderCard key={order.id} order={order} perGuest={perGuest} now={now} />
           ))}
         </div>
       </section>
 
-      <section className={cn(card, "px-5 py-5")}>
-        <p className="text-[15px] text-foreground/75">
-          {perGuest ? "Your amount due" : "Amount due"}
-        </p>
-        <p className="mt-2 text-center text-[40px] font-bold leading-none tracking-tight tabular-nums">
-          {money(bill.total)}
-        </p>
-        <dl className="mt-5 space-y-1.5 border-t border-border pt-3 text-[14px] text-foreground/75">
-          <div className="flex justify-between">
-            <dt>Subtotal</dt>
-            <dd className="tabular-nums">{money(bill.subtotal)}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt>Service fee (5%)</dt>
-            <dd className="tabular-nums">{money(bill.service_fee)}</dd>
-          </div>
-        </dl>
-        <p className="mt-3 text-[13px] text-muted-foreground">
-          {perGuest
-            ? "This is your own bill. Everyone at the table pays for what they ordered."
-            : "This is the whole table's bill — one bill, shared."}{" "}
-          Pay your waiter at the end of the meal.
-        </p>
-      </section>
+      {bill.all_paid ? (
+        <section className="rounded-2xl border-2 border-success-line bg-success-soft px-5 py-6 text-center shadow-[0_0_24px_-10px_var(--success)]">
+          <CircleCheck className="mx-auto size-11 text-success-text" />
+          <p className="mt-3 text-[20px] font-semibold text-success-text">Paid in full</p>
+          <p className="mt-2 text-[40px] font-bold leading-none tracking-tight tabular-nums">
+            {money(bill.total)}
+          </p>
+          <p className="mt-4 text-[14px] text-foreground/80">
+            Thank you! Your waiter has confirmed {perGuest ? "your" : "the table's"} payment.
+          </p>
+        </section>
+      ) : (
+        <section className={cn(card, "px-5 py-5")}>
+          <p className="text-[15px] text-foreground/75">
+            {perGuest ? "Your amount due" : "Amount due"}
+          </p>
+          <p className="mt-2 text-center text-[40px] font-bold leading-none tracking-tight tabular-nums">
+            {money(bill.due)}
+          </p>
+          <dl className="mt-5 space-y-1.5 border-t border-border pt-3 text-[14px] text-foreground/75">
+            <div className="flex justify-between">
+              <dt>Subtotal</dt>
+              <dd className="tabular-nums">{money(bill.subtotal)}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt>Service fee (5%)</dt>
+              <dd className="tabular-nums">{money(bill.service_fee)}</dd>
+            </div>
+            {bill.paid > 0 ? (
+              <>
+                <div className="flex justify-between">
+                  <dt>Total</dt>
+                  <dd className="tabular-nums">{money(bill.total)}</dd>
+                </div>
+                <div className="flex justify-between font-medium text-success-text">
+                  <dt>Paid</dt>
+                  <dd className="tabular-nums">−{money(bill.paid)}</dd>
+                </div>
+              </>
+            ) : null}
+          </dl>
+          <p className="mt-3 text-[13px] text-muted-foreground">
+            {perGuest
+              ? "This is your own bill. Everyone at the table pays for what they ordered."
+              : "This is the whole table's bill — one bill, shared."}{" "}
+            Pay your waiter at the end of the meal.
+          </p>
+        </section>
+      )}
     </div>
   );
 }
