@@ -130,7 +130,9 @@ export function ScannerBrowserPrompt({ state, onDismissed }: ScannerPromptProps)
   };
 
   return (
-    <div className="fixed inset-x-0 top-0 z-50 mx-auto w-full max-w-[480px] px-3 pt-3">
+    // In the page flow, not fixed: it scrolls away instead of covering the
+    // pinned tab bar, search and filter.
+    <div className="relative z-40 mx-auto w-full max-w-[480px] px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
       <Collapsible open={expanded} onOpenChange={setExpanded} asChild>
         <div className="overflow-hidden rounded-2xl border border-warning-line bg-warning-soft shadow-[0_16px_40px_-12px_rgb(0_0_0/0.8)]">
           <div className="flex items-start gap-3 p-4 pb-3">
