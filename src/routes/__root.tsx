@@ -12,6 +12,8 @@ import { Toaster } from "@/components/ui/sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { THEME_BOOT_SCRIPT } from "../lib/theme";
+import { useTheme } from "../hooks/use-theme";
 
 function NotFoundComponent() {
   return (
@@ -79,7 +81,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { name: "theme-color", content: "#0d1116" },
-      { name: "color-scheme", content: "dark" },
+      { name: "color-scheme", content: "light dark" },
       { title: "Hearth Dine-in" },
       {
         name: "description",
@@ -119,9 +121,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    // The boot script sets the theme class before React loads.
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
       <body>
         {children}
@@ -133,12 +137,14 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  // Also keeps the theme following the clock while the app is open.
+  const { theme } = useTheme();
 
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
-      <Toaster position="top-center" richColors theme="dark" />
+      <Toaster position="top-center" richColors theme={theme} />
     </QueryClientProvider>
   );
 }

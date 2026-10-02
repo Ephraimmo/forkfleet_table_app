@@ -1,9 +1,42 @@
-import { TriangleAlert, User } from "lucide-react";
+import { Moon, Sun, SunMoon, TriangleAlert, User } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { MAX_NAME } from "@/lib/dine-in";
+import { useTheme } from "@/hooks/use-theme";
+import type { ThemePreference } from "@/lib/theme";
 import { useDineIn } from "./context";
 import { Avatar, HeaderLogo } from "./ui";
 import { field } from "./styles";
+
+const THEME_STEPS: Record<
+  ThemePreference,
+  { next: ThemePreference; label: string; icon: typeof Sun }
+> = {
+  auto: { next: "light", label: "Auto — light by day, dark at night", icon: SunMoon },
+  light: { next: "dark", label: "Light", icon: Sun },
+  dark: { next: "auto", label: "Dark", icon: Moon },
+};
+
+/** Cycles Auto → Light → Dark. */
+function ThemeButton() {
+  const { preference, setPreference } = useTheme();
+  const step = THEME_STEPS[preference];
+  const Icon = step.icon;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setPreference(step.next);
+        toast(`Theme: ${THEME_STEPS[step.next].label}`, { duration: 1800 });
+      }}
+      className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:text-foreground"
+      aria-label={`Theme: ${step.label}. Tap to change.`}
+      title={`Theme: ${step.label}`}
+    >
+      <Icon className="size-[18px]" />
+    </button>
+  );
+}
 
 export function TableHeader() {
   const { restaurant, table, tableState, guestName, setGuestName, ordersTaken } = useDineIn();
@@ -30,15 +63,18 @@ export function TableHeader() {
             <p className="truncate text-[13px] text-muted-foreground">{restaurant.cuisine}</p>
           ) : null}
         </div>
-        <span className="inline-flex shrink-0 items-center gap-2 text-[15px] font-medium">
-          <span
-            className={cn(
-              "size-2.5 rounded-full",
-              ordersTaken ? "bg-online shadow-[0_0_10px_var(--online)]" : "bg-offline",
-            )}
-          />
-          {ordersTaken ? "Taking orders" : "Not taking orders"}
-        </span>
+        <div className="flex shrink-0 items-center gap-3">
+          <ThemeButton />
+          <span className="inline-flex items-center gap-2 text-[15px] font-medium">
+            <span
+              className={cn(
+                "size-2.5 rounded-full",
+                ordersTaken ? "bg-online shadow-[0_0_10px_var(--online)]" : "bg-offline",
+              )}
+            />
+            {ordersTaken ? "Taking orders" : "Not taking orders"}
+          </span>
+        </div>
       </div>
 
       {!ordersTaken ? (

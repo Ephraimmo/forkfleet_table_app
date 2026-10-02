@@ -4,7 +4,7 @@
 
 import type { ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { ArrowLeft, Minus, Plus, Trash2, User } from "lucide-react";
+import { ArrowLeft, Minus, Plus, Trash2, User, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ORDER_STEPS, type GuestOrder } from "@/lib/dine-in";
 
@@ -97,44 +97,60 @@ export function Avatar({ name, online }: { name: string | null; online?: boolean
 /**
  * A full-screen page that slides in over the app, with the back arrow and
  * title the design uses for "Add Item", "Steak", "Edit order" and so on.
+ * `sheet` makes it the "Filter" kind: rises from the bottom, X to close.
  */
 export function Panel(props: {
   open: boolean;
   onClose: () => void;
   title: ReactNode;
   centerTitle?: boolean;
+  sheet?: boolean;
+  /** Top-right action, e.g. "Reset". */
+  action?: ReactNode;
   footer?: ReactNode;
   children: ReactNode;
 }) {
+  const centered = props.centerTitle || props.sheet;
   return (
     <Dialog.Root open={props.open} onOpenChange={(open) => !open && props.onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <Dialog.Content
           aria-describedby={undefined}
-          className="fixed inset-0 z-50 mx-auto flex h-dvh w-full max-w-[480px] flex-col bg-background outline-none data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=closed]:duration-200 data-[state=open]:animate-in data-[state=open]:slide-in-from-right data-[state=open]:duration-300"
+          className={cn(
+            "fixed inset-0 z-50 mx-auto flex h-dvh w-full max-w-[480px] flex-col bg-background outline-none data-[state=closed]:animate-out data-[state=closed]:duration-200 data-[state=open]:animate-in data-[state=open]:duration-300",
+            props.sheet
+              ? "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom"
+              : "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
+          )}
         >
-          <header className="flex shrink-0 items-center gap-2 px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
+          <header
+            className={cn(
+              "shrink-0 items-center gap-2 px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))]",
+              centered ? "grid grid-cols-[5.5rem_1fr_5.5rem]" : "flex",
+            )}
+          >
             <Dialog.Close
               className="flex size-11 shrink-0 items-center justify-center rounded-full text-foreground transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label="Back"
+              aria-label={props.sheet ? "Close" : "Back"}
             >
-              <ArrowLeft className="size-6" />
+              {props.sheet ? <X className="size-6" /> : <ArrowLeft className="size-6" />}
             </Dialog.Close>
             <Dialog.Title
               className={cn(
-                "min-w-0 flex-1 truncate text-[19px] font-semibold tracking-tight",
-                props.centerTitle && "pr-11 text-center",
+                "min-w-0 truncate text-[19px] font-semibold tracking-tight",
+                centered ? "text-center" : "flex-1",
               )}
             >
               {props.title}
             </Dialog.Title>
+            {centered ? <div className="flex justify-end pr-2">{props.action}</div> : null}
           </header>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6">
             {props.children}
           </div>
           {props.footer ? (
-            <div className="shrink-0 bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_24px_-12px_rgb(0_0_0/0.6)]">
+            <div className="shrink-0 bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_24px_-12px_rgb(0_0_0/0.12)] dark:shadow-[0_-12px_24px_-12px_rgb(0_0_0/0.6)]">
               {props.footer}
             </div>
           ) : null}
@@ -311,7 +327,7 @@ export function StateScreen(props: {
         <div
           className={cn(
             "mx-auto flex size-20 items-center justify-center rounded-full [&_svg]:size-9",
-            tone === "danger" && "bg-danger-soft text-white",
+            tone === "danger" && "bg-danger-soft text-destructive dark:text-white",
             tone === "brand" && "bg-primary/15 text-primary",
             tone === "neutral" && "bg-surface text-muted-foreground",
           )}

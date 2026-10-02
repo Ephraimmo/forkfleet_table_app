@@ -34,6 +34,19 @@ export interface ModifierChoiceConfig {
   price: number;
 }
 
+/**
+ * Dietary tags staff can put on an item, stored as `dietary_tags: string[]`
+ * on the menu item ("vegetarian", "vegan", "gluten_free", "halal").
+ */
+export type DietaryTag = "vegetarian" | "vegan" | "gluten_free" | "halal";
+
+export const DIETARY_TAGS: { id: DietaryTag; label: string }[] = [
+  { id: "vegetarian", label: "Vegetarian" },
+  { id: "vegan", label: "Vegan" },
+  { id: "gluten_free", label: "Gluten Free" },
+  { id: "halal", label: "Halal" },
+];
+
 export interface MenuItem {
   id: string;
   category_id: string | null;
@@ -46,6 +59,8 @@ export interface MenuItem {
   discount_price: number | null;
   image_url: string | null;
   allergens: string[];
+  /** Empty until staff tag the item. */
+  dietary_tags: DietaryTag[];
   is_available: boolean;
   is_featured: boolean;
   prep_time_minutes: number;
@@ -112,6 +127,17 @@ function normalizeCategory(id: string, r: Raw): MenuCategory {
   };
 }
 
+/** "Gluten-free", "gluten_free", "GlutenFree" → "gluten_free"; unknown tags are dropped. */
+function dietaryTagsOf(raw: unknown): DietaryTag[] {
+  if (!Array.isArray(raw)) return [];
+  const known = new Map(DIETARY_TAGS.map((t) => [t.id.replace(/_/g, ""), t.id]));
+  const tags = raw
+    .filter((v: unknown): v is string => typeof v === "string")
+    .map((v) => known.get(v.toLowerCase().replace(/[^a-z]/g, "")))
+    .filter((t): t is DietaryTag => !!t);
+  return [...new Set(tags)];
+}
+
 function normalizeItem(id: string, r: Raw): MenuItem {
   const discount = r["discount_price"] ?? r["discountPrice"];
   const ids = r["modifier_ids"] ?? r["modifierIds"];
@@ -141,6 +167,7 @@ function normalizeItem(id: string, r: Raw): MenuItem {
     allergens: Array.isArray(r["allergens"])
       ? r["allergens"].filter((a: unknown): a is string => typeof a === "string")
       : [],
+    dietary_tags: dietaryTagsOf(r["dietary_tags"] ?? r["dietaryTags"]),
     is_available: available(r),
     is_featured: r["is_featured"] === true || r["isFeatured"] === true,
     prep_time_minutes: num(r["prep_time_minutes"] ?? r["prepTime"]) || 15,

@@ -7,6 +7,10 @@ import { cn } from "@/lib/utils";
 import {
   cartTotals,
   formatMoney,
+  MAX_QUANTITY,
+  itemOptions,
+  newCartItem,
+  withQuantity,
   tryAutoRedirectToRealBrowser,
   type CartItem,
   type MenuItem,
@@ -227,6 +231,26 @@ function DineInPage() {
     if (index === undefined) toast.success(`${line.name} added to your order`);
   };
 
+  // The + on a menu card: straight into the order when there's nothing to choose.
+  const quickAdd = (item: MenuItem) => {
+    const options = itemOptions(menu, item);
+    if (options.variants.length || options.modifiers.length || options.addons.length) {
+      pickItem(item);
+      return;
+    }
+    // Same plain dish again: one more of it rather than a second line.
+    setCart((prev) => {
+      const i = prev.findIndex(
+        (l) => l.item_id === item.id && !l.variant && l.addons.length === 0 && !l.notes,
+      );
+      if (i < 0) return [...prev, newCartItem(menu, item)];
+      return prev.map((l, j) =>
+        j === i ? withQuantity(l, Math.min(l.quantity + 1, MAX_QUANTITY)) : l,
+      );
+    });
+    toast.success(`${item.name} added to your order`);
+  };
+
   const onSent = (result: PlaceOrderResult) => {
     setCartOpen(false);
     setTab("bill");
@@ -265,7 +289,7 @@ function DineInPage() {
           </TabsList>
         </div>
         <TabsContent value="menu" className="mt-0">
-          <MenuTab onPick={pickItem} />
+          <MenuTab onPick={pickItem} onAdd={quickAdd} />
         </TabsContent>
         <TabsContent value="bill" className="mt-0">
           <BillTab />

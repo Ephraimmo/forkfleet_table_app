@@ -89,10 +89,91 @@
 }
 
 /*
- * Hearth palette, sampled from the Hearth Waiter design. The app is dark
- * only, so :root and .dark carry the same values.
+ * Hearth palette, sampled from the Hearth Waiter design. Light by day,
+ * dark at night: <html class="dark"> switches it (see lib/theme.ts).
  */
-:root,
+:root {
+  color-scheme: light;
+  --radius: 0.75rem;
+  --background: oklch(0.97 0.003 264.5);
+  --foreground: oklch(0.189 0.015 253.2);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.189 0.015 253.2);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.189 0.015 253.2);
+  --primary: oklch(0.681 0.199 41.9);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.949 0.006 264.5);
+  --secondary-foreground: oklch(0.189 0.015 253.2);
+  --muted: oklch(0.976 0.003 264.5);
+  --muted-foreground: oklch(0.514 0.022 255.6);
+  --accent: oklch(0.949 0.006 264.5);
+  --accent-foreground: oklch(0.189 0.015 253.2);
+  --destructive: oklch(0.585 0.208 25.3);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.921 0.008 260.7);
+  --input: oklch(0.887 0.011 256.7);
+  --ring: oklch(0.681 0.199 41.9);
+
+  /* Raised controls: secondary buttons, stepper keys, search. */
+  --surface: oklch(0.949 0.006 264.5);
+  /* Input wells and inner cards. */
+  --field: oklch(0.976 0.003 264.5);
+  /* The "Waiter" / "Dine-in" word in the logo. */
+  --brand: oklch(0.646 0.19 41.7);
+  --brand-light: oklch(0.71 0.168 45.7);
+
+  /* Ready to serve, online. */
+  --success: oklch(0.63 0.16 150.4);
+  --success-text: oklch(0.527 0.137 150.1);
+  --success-soft: oklch(0.959 0.021 156.8);
+  --success-line: oklch(0.726 0.152 152.4);
+  --online: oklch(0.723 0.192 149.6);
+  --offline: oklch(0.637 0.208 25.3);
+
+  /* Selected options, "Confirmed", accepted waiter calls. */
+  --info: oklch(0.528 0.19 260.5);
+  --info-line: oklch(0.595 0.17 256.4);
+  --info-soft: oklch(0.943 0.024 259.8);
+  --info-wash: oklch(0.965 0.017 259.4);
+  --info-muted: oklch(0.89 0.046 259.5);
+  --info-text: oklch(0.501 0.165 258.7);
+
+  /* "You're offline" card. */
+  --warning-soft: oklch(0.97 0.023 71.8);
+  --warning-line: oklch(0.727 0.155 53.8);
+  --warning-text: oklch(0.555 0.146 49);
+
+  /* "Sent to kitchen". */
+  --kitchen: oklch(0.476 0.199 286.6);
+  /* Order totals. */
+  --gold: oklch(0.626 0.125 70.4);
+  /* Behind the lock on "Access unavailable". */
+  --danger-soft: oklch(0.912 0.036 17.8);
+  /* The guest badge next to an order number. */
+  --guest: oklch(0.553 0.211 322.9);
+
+  /* Dashboard numbers. */
+  --stat-blue: oklch(0.584 0.176 255.1);
+  --stat-pink: oklch(0.592 0.195 16.3);
+  --stat-yellow: oklch(0.659 0.135 83.6);
+  --stat-purple: oklch(0.547 0.177 271.8);
+
+  --chart-1: oklch(0.681 0.199 41.9);
+  --chart-2: oklch(0.711 0.188 148);
+  --chart-3: oklch(0.708 0.163 245.6);
+  --chart-4: oklch(0.859 0.147 90.7);
+  --chart-5: oklch(0.671 0.187 16.1);
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.189 0.015 253.2);
+  --sidebar-primary: oklch(0.681 0.199 41.9);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.949 0.006 264.5);
+  --sidebar-accent-foreground: oklch(0.189 0.015 253.2);
+  --sidebar-border: oklch(0.921 0.008 260.7);
+  --sidebar-ring: oklch(0.681 0.199 41.9);
+}
+
 .dark {
   color-scheme: dark;
   --radius: 0.75rem;
