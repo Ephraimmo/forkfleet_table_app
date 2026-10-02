@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, ChevronDown, ExternalLink, Share2, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ChevronDown, ExternalLink, Share2, TriangleAlert, X } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +26,8 @@ import {
   type PersistenceState,
   type RealBrowserTarget,
 } from "@/lib/dine-in";
+import { cn } from "@/lib/utils";
+import { btn } from "./styles";
 
 interface ScannerPromptProps {
   state: PersistenceState;
@@ -131,20 +132,16 @@ export function ScannerBrowserPrompt({ state, onDismissed }: ScannerPromptProps)
   return (
     <div className="fixed inset-x-0 top-0 z-50 mx-auto w-full max-w-[480px] px-3 pt-3">
       <Collapsible open={expanded} onOpenChange={setExpanded} asChild>
-        <div className="overflow-hidden rounded-2xl border border-amber-500/30 bg-amber-500/10 shadow-lg backdrop-blur">
-          <div className="flex items-start gap-3 p-3">
-            <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-500">
-              <AlertTriangle className="size-4" />
-            </div>
+        <div className="overflow-hidden rounded-2xl border border-warning-line bg-warning-soft shadow-[0_16px_40px_-12px_rgb(0_0_0/0.8)]">
+          <div className="flex items-start gap-3 p-4 pb-3">
+            <TriangleAlert className="mt-0.5 size-7 shrink-0 fill-warning-text text-warning-soft" />
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                  Open in {targetLabel}
-                </p>
+                <p className="text-[17px] font-semibold text-warning-text">Open in {targetLabel}</p>
                 <button
                   type="button"
                   onClick={handleDismiss}
-                  className="shrink-0 rounded-md p-1 text-amber-700/70 hover:bg-amber-500/10 hover:text-amber-900 dark:text-amber-200/70 dark:hover:text-amber-50"
+                  className="-mr-1 -mt-1 flex size-8 shrink-0 items-center justify-center rounded-lg text-foreground/60 hover:bg-white/5 hover:text-foreground"
                   aria-label="Close"
                 >
                   <X className="size-4" />
@@ -153,7 +150,7 @@ export function ScannerBrowserPrompt({ state, onDismissed }: ScannerPromptProps)
               <CollapsibleTrigger asChild>
                 <button
                   type="button"
-                  className="mt-0.5 flex w-full items-center gap-1 text-left text-xs text-amber-800/80 dark:text-amber-200/80"
+                  className="mt-1 flex w-full items-center gap-1 text-left text-sm leading-snug text-foreground/85"
                 >
                   <span>
                     {envLabel} may clear your order history when closed. Tap for how to keep it.
@@ -163,7 +160,7 @@ export function ScannerBrowserPrompt({ state, onDismissed }: ScannerPromptProps)
                   />
                 </button>
               </CollapsibleTrigger>
-              <CollapsibleContent className="mt-2 space-y-2 text-xs text-amber-800/90 dark:text-amber-200/90">
+              <CollapsibleContent className="mt-2 space-y-2 text-[13px] leading-relaxed text-foreground/75">
                 <p>
                   {envLabel} wipes what it remembers each time you leave it, so the site can't tell
                   it's the same guest next time you scan.
@@ -175,19 +172,14 @@ export function ScannerBrowserPrompt({ state, onDismissed }: ScannerPromptProps)
               </CollapsibleContent>
             </div>
           </div>
-          <div className="flex gap-2 border-t border-amber-500/20 bg-amber-500/5 p-3">
+          <div className="flex gap-2 px-4 pb-4">
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button
-                  type="button"
-                  variant="default"
-                  size="sm"
-                  className="flex-1 rounded-xl bg-amber-600 text-amber-50 hover:bg-amber-700"
-                >
-                  <ExternalLink className="size-4" /> Open in {targetLabel}
-                </Button>
+                <button type="button" className={cn(btn.primary, "h-11 flex-1 text-sm")}>
+                  <ExternalLink /> Open in {targetLabel}
+                </button>
               </AlertDialogTrigger>
-              <AlertDialogContent>
+              <AlertDialogContent className="w-[calc(100%-2rem)] rounded-2xl border-border bg-card">
                 <AlertDialogHeader>
                   <AlertDialogTitle>How to open in {targetLabel}</AlertDialogTitle>
                   <AlertDialogDescription>
@@ -195,9 +187,9 @@ export function ScannerBrowserPrompt({ state, onDismissed }: ScannerPromptProps)
                     takes one quick tap from you.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
-                <ol className="space-y-3 text-sm text-muted-foreground">
+                <ol className="space-y-3 text-sm text-foreground/75">
                   <li className="flex gap-3">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
                       1
                     </span>
                     <span>
@@ -207,7 +199,7 @@ export function ScannerBrowserPrompt({ state, onDismissed }: ScannerPromptProps)
                     </span>
                   </li>
                   <li className="flex gap-3">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
                       2
                     </span>
                     <span>
@@ -216,7 +208,7 @@ export function ScannerBrowserPrompt({ state, onDismissed }: ScannerPromptProps)
                     </span>
                   </li>
                   <li className="flex gap-3">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
                       3
                     </span>
                     <span>
@@ -225,33 +217,27 @@ export function ScannerBrowserPrompt({ state, onDismissed }: ScannerPromptProps)
                   </li>
                 </ol>
                 <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
-                  <AlertDialogCancel asChild>
-                    <Button variant="outline" type="button" className="w-full rounded-xl sm:w-auto">
-                      Got it
-                    </Button>
+                  <AlertDialogCancel
+                    className={cn(btn.secondary, "mt-0 h-11 w-full shadow-none sm:mt-0 sm:w-auto")}
+                  >
+                    Got it
                   </AlertDialogCancel>
-                  <AlertDialogAction asChild>
-                    <Button
-                      type="button"
-                      variant="default"
-                      className="w-full rounded-xl sm:w-auto"
-                      onClick={handleShare}
-                    >
-                      <Share2 className="size-4" /> Show share sheet
-                    </Button>
+                  <AlertDialogAction
+                    className={cn(btn.primary, "h-11 w-full sm:w-auto")}
+                    onClick={handleShare}
+                  >
+                    <Share2 /> Show share sheet
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-            <Button
+            <button
               type="button"
-              variant="outline"
-              size="sm"
-              className="shrink-0 rounded-xl border-amber-500/30 text-amber-800 hover:bg-amber-500/10 dark:text-amber-200"
+              className={cn(btn.secondary, "h-11 shrink-0 text-sm")}
               onClick={handleShare}
             >
-              <Share2 className="size-4" /> Share
-            </Button>
+              <Share2 /> Share
+            </button>
           </div>
         </div>
       </Collapsible>

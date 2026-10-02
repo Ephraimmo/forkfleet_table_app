@@ -77,16 +77,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      { name: "theme-color", content: "#0d1116" },
+      { name: "color-scheme", content: "dark" },
       { title: "Hearth Dine-in" },
       {
         name: "description",
-        content: "Order from your table — browse the menu, order, and call a waiter from your phone.",
+        content:
+          "Order from your table — browse the menu, order, and call a waiter from your phone.",
       },
       { property: "og:title", content: "Hearth Dine-in" },
       {
         property: "og:description",
-        content: "Order from your table — browse the menu, order, and call a waiter from your phone.",
+        content:
+          "Order from your table — browse the menu, order, and call a waiter from your phone.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -98,6 +102,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: appCss,
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      // Inter stands in for SF Pro where the system font isn't available.
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap",
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -108,7 +119,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
         <HeadContent />
       </head>
@@ -127,7 +138,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
-      <Toaster position="top-center" richColors />
+      <Toaster position="top-center" richColors theme="dark" />
     </QueryClientProvider>
   );
 }

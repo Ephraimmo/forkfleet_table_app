@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { ClientOnly, createFileRoute } from "@tanstack/react-router";
-import { BellRing, Loader2, ReceiptText, ShoppingBag, UtensilsCrossed } from "lucide-react";
+import { Bell, Loader2, ReceiptText, ShoppingBag, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
@@ -21,6 +20,8 @@ import { ItemSheet, type ItemSheetTarget } from "@/components/dine-in/ItemSheet"
 import { CartSheet } from "@/components/dine-in/CartSheet";
 import { WaiterSheet } from "@/components/dine-in/WaiterSheet";
 import { ScannerBrowserPrompt } from "@/components/dine-in/ScannerBrowserPrompt";
+import { GuestBadge, HeroLogo, StateScreen } from "@/components/dine-in/ui";
+import { btn, innerCard } from "@/components/dine-in/styles";
 
 export const Route = createFileRoute("/dine-in/$token")({
   head: () => ({
@@ -42,6 +43,18 @@ export const Route = createFileRoute("/dine-in/$token")({
   component: DineInRoute,
 });
 
+function Opening({ label }: { label?: string }) {
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-8 bg-background px-6">
+      <HeroLogo />
+      <div className="flex items-center gap-2.5 text-[15px] text-muted-foreground">
+        <Loader2 className="size-5 animate-spin text-primary" />
+        {label ?? "Opening your table…"}
+      </div>
+    </div>
+  );
+}
+
 function DineInRoute() {
   const { token } = Route.useParams();
 
@@ -54,13 +67,7 @@ function DineInRoute() {
   }, []);
 
   return (
-    <ClientOnly
-      fallback={
-        <div className="flex min-h-dvh items-center justify-center">
-          <Loader2 className="size-8 animate-spin text-muted-foreground" />
-        </div>
-      }
-    >
+    <ClientOnly fallback={<Opening label="Loading…" />}>
       <DineInGate token={token} />
     </ClientOnly>
   );
@@ -82,53 +89,66 @@ function DineInGate({ token }: { token: string }) {
   if (startup.status === "error" && startup.error?.pending) {
     const p = startup.error.pending;
     return (
-      <div className="flex min-h-dvh items-center justify-center px-6">
-        <div className="w-full max-w-sm text-center">
-          <ReceiptText className="mx-auto size-10 text-primary" />
-          <h1 className="mt-4 text-xl font-semibold">You already have an order waiting</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{startup.error.message}</p>
-          <div className="mt-5 rounded-xl border border-border p-4 text-left text-sm">
-            <div className="flex justify-between font-medium">
-              <span>{p.table_name}</span>
-              <span>{p.order_number}</span>
-            </div>
-            <p className="mt-1 text-muted-foreground">{p.status.replace(/_/g, " ")}</p>
-            <ul className="mt-3 space-y-1">
-              {p.items.map((it, i) => (
-                <li key={i} className="flex justify-between">
-                  <span>{it.name}</span>
-                  <span className="text-muted-foreground">×{it.quantity}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-3 flex justify-between border-t border-border pt-2 font-semibold">
-              <span>Total</span>
-              <span>{formatMoney(p.total)}</span>
-            </div>
-          </div>
-          <Button
-            className="mt-6 w-full rounded-xl"
+      <StateScreen
+        tone="brand"
+        icon={<ReceiptText />}
+        title="You already have an order waiting"
+        actions={
+          <button
+            type="button"
+            className={cn(btn.primary, "h-[52px] w-full text-base")}
             onClick={() => window.location.assign(`/dine-in/${p.token}`)}
           >
             Back to {p.table_name}
-          </Button>
+          </button>
+        }
+      >
+        <p>{startup.error.message}</p>
+        <div className={cn(innerCard, "mt-6 bg-card p-4 text-left text-[15px]")}>
+          <p className="flex items-center gap-2 text-foreground/85">
+            <GuestBadge />
+            {p.order_number} · {p.table_name}
+          </p>
+          <p className="mt-1 text-[13px] capitalize text-muted-foreground">
+            {p.status.replace(/_/g, " ")}
+          </p>
+          <ul className="mt-3 space-y-1.5">
+            {p.items.map((it, i) => (
+              <li key={i} className="flex gap-2">
+                <span className="min-w-7 text-foreground/70 tabular-nums">{it.quantity}×</span>
+                <span className="font-medium text-foreground">{it.name}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-3 flex items-center justify-between border-t border-border pt-2.5">
+            <span className="font-semibold text-foreground">Total</span>
+            <span className="text-[17px] font-bold text-gold tabular-nums">
+              {formatMoney(p.total)}
+            </span>
+          </div>
         </div>
-      </div>
+      </StateScreen>
     );
   }
 
   if (startup.status === "error") {
     return (
-      <div className="flex min-h-dvh items-center justify-center px-6">
-        <div className="max-w-sm text-center">
-          <UtensilsCrossed className="mx-auto size-10 text-muted-foreground" />
-          <h1 className="mt-4 text-xl font-semibold">We couldn't open your table</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{startup.error?.message}</p>
-          <Button className="mt-6 rounded-xl" onClick={startup.retry}>
+      <StateScreen
+        tone="danger"
+        icon={<UtensilsCrossed />}
+        title="We couldn't open your table"
+        actions={
+          <button
+            type="button"
+            className={cn(btn.secondary, "h-[52px] w-full text-base")}
+            onClick={startup.retry}
+          >
             Try again
-          </Button>
-        </div>
-      </div>
+          </button>
+        }
+      >
+        <p>{startup.error?.message}</p>
+      </StateScreen>
     );
   }
 
@@ -139,12 +159,7 @@ function DineInGate({ token }: { token: string }) {
     !startup.menu ||
     !startup.persistence
   ) {
-    return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-3 px-6">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">Opening your table…</p>
-      </div>
-    );
+    return <Opening />;
   }
 
   return (
@@ -176,6 +191,7 @@ function DineInPage() {
   const cartTotal = cartTotals(cart).total;
   const orderCount = bill?.orders.length ?? 0;
   const waiterWaiting = waiterCall !== null && waiterCall.status !== "resolved";
+  const waiterAccepted = waiterCall?.status === "accepted";
 
   const pickItem = (item: MenuItem) => setTarget({ item });
   const editLine = (line: CartItem, index: number) => {
@@ -210,20 +226,29 @@ function DineInPage() {
     <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-background">
       <TableHeader />
 
-      <Tabs value={tab} onValueChange={setTab} className="flex-1">
-        <TabsList className="sticky top-0 z-30 grid w-full grid-cols-2 rounded-none border-b border-border bg-background/95 backdrop-blur">
-          <TabsTrigger value="menu" className="gap-1.5">
-            <UtensilsCrossed className="size-4" /> Menu
-          </TabsTrigger>
-          <TabsTrigger value="bill" className="gap-1.5">
-            <ReceiptText className="size-4" /> Bill
-            {orderCount > 0 ? (
-              <span className="rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">
-                {orderCount}
-              </span>
-            ) : null}
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onValueChange={setTab} className="mt-2 flex-1">
+        {/* 60px tall: MenuTab's sticky search sits right under it. */}
+        <div className="sticky top-0 z-30 h-[60px] bg-background/95 px-4 py-2 backdrop-blur">
+          <TabsList className="grid h-11 w-full grid-cols-2 rounded-xl border border-border bg-card p-1">
+            <TabsTrigger
+              value="menu"
+              className="h-full gap-2 rounded-[0.6rem] text-[15px] font-semibold text-muted-foreground data-[state=active]:bg-surface data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:[&_svg]:text-primary"
+            >
+              <UtensilsCrossed className="size-[18px]" /> Menu
+            </TabsTrigger>
+            <TabsTrigger
+              value="bill"
+              className="h-full gap-2 rounded-[0.6rem] text-[15px] font-semibold text-muted-foreground data-[state=active]:bg-surface data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:[&_svg]:text-primary"
+            >
+              <ReceiptText className="size-[18px]" /> Bill
+              {orderCount > 0 ? (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground">
+                  {orderCount}
+                </span>
+              ) : null}
+            </TabsTrigger>
+          </TabsList>
+        </div>
         <TabsContent value="menu" className="mt-0">
           <MenuTab onPick={pickItem} />
         </TabsContent>
@@ -233,36 +258,44 @@ function DineInPage() {
       </Tabs>
 
       {/* Floating action bar */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] bg-gradient-to-t from-background via-background/90 to-transparent px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6">
         <div className="pointer-events-auto flex gap-2">
-          <Button
+          <button
             type="button"
-            variant={waiterWaiting ? "default" : "outline"}
-            size="lg"
             className={cn(
-              "h-12 flex-1 rounded-xl text-base",
-              !waiterWaiting && "bg-background/95 backdrop-blur",
+              "inline-flex h-[52px] min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border-2 px-3 text-[15px] font-semibold transition-[background-color,transform] active:scale-[0.98]",
+              !waiterWaiting && "border-input bg-surface text-foreground hover:bg-surface/70",
+              waiterWaiting && !waiterAccepted && "border-primary/60 bg-card text-foreground",
+              waiterAccepted && "border-info-line bg-info-wash text-info-text",
             )}
             onClick={() => setWaiterOpen(true)}
           >
-            <BellRing className="size-5" />
-            {waiterWaiting
-              ? waiterCall?.status === "accepted"
+            <Bell
+              className={cn(
+                "size-5 shrink-0",
+                waiterWaiting && !waiterAccepted && "fill-stat-yellow text-stat-yellow",
+              )}
+            />
+            <span className="truncate">
+              {waiterAccepted
                 ? "Waiter on the way"
-                : "Waiting for a waiter…"
-              : "Call a waiter"}
-          </Button>
+                : waiterWaiting
+                  ? "Waiting for a waiter…"
+                  : "Call a waiter"}
+            </span>
+          </button>
           {cartCount > 0 ? (
-            <Button
+            <button
               type="button"
-              size="lg"
-              className="h-12 flex-1 rounded-xl text-base"
+              className={cn(btn.primary, "h-[52px] min-w-0 flex-1 px-3")}
               disabled={!ordersTaken}
               onClick={() => setCartOpen(true)}
             >
-              <ShoppingBag className="size-5" />
-              {cartCount} · {money(cartTotal)}
-            </Button>
+              <ShoppingBag />
+              <span className="truncate tabular-nums">
+                {cartCount} · {money(cartTotal)}
+              </span>
+            </button>
           ) : null}
         </div>
       </div>

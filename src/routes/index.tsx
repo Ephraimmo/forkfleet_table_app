@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { QrCode } from "lucide-react";
+import { Bell, QrCode, UtensilsCrossed } from "lucide-react";
+import { HeroLogo } from "@/components/dine-in/ui";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -23,19 +24,34 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
+const STEPS = [
+  { icon: QrCode, text: "Scan the QR code on your table" },
+  { icon: UtensilsCrossed, text: "Browse the menu and order" },
+  { icon: Bell, text: "Call a waiter any time" },
+];
+
 function Index() {
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-background px-6">
-      <div className="max-w-sm text-center">
-        <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-primary/10">
-          <QrCode className="size-8 text-primary" />
-        </div>
-        <h1 className="mt-6 text-2xl font-semibold">Order from your table</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Scan the QR code on your table with your phone's camera to see the menu, order, and call
-          a waiter — no app needed.
+    <div className="flex min-h-dvh items-center justify-center bg-background px-6 py-12">
+      <div className="w-full max-w-sm">
+        <HeroLogo />
+        <p className="mt-6 text-center text-[17px] text-foreground/85">Order from your table</p>
+        <ul className="mt-8 space-y-3">
+          {STEPS.map(({ icon: Icon, text }) => (
+            <li
+              key={text}
+              className="flex h-14 items-center gap-4 rounded-xl border border-input bg-field px-4 text-[15px] text-foreground/90"
+            >
+              <Icon className="size-5 shrink-0 text-muted-foreground" />
+              {text}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-8 text-center text-[15px] leading-relaxed text-muted-foreground">
+          Use your phone's camera — no app needed.
+          <br />
+          Powered by Hearth.
         </p>
-        <p className="mt-8 text-xs text-muted-foreground">Powered by Hearth</p>
       </div>
     </div>
   );

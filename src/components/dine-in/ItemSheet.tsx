@@ -1,9 +1,4 @@
-import { useEffect, useRef, useState } from "react";
-import { Minus, Plus } from "lucide-react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   MAX_NOTE,
@@ -21,6 +16,8 @@ import {
   type MenuItem,
 } from "@/lib/dine-in";
 import { useDineIn } from "./context";
+import { OptionChip, Panel, Stepper } from "./ui";
+import { btn, field, sectionTitle } from "./styles";
 
 export interface ItemSheetTarget {
   item: MenuItem;
@@ -29,61 +26,27 @@ export interface ItemSheetTarget {
   line?: CartItem;
 }
 
-function Stepper(props: {
-  value: number;
-  min: number;
-  max: number;
-  onChange: (n: number) => void;
-  label: string;
-}) {
-  return (
-    <div className="flex items-center gap-1">
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        className="size-11 rounded-full"
-        aria-label={`Fewer ${props.label}`}
-        disabled={props.value <= props.min}
-        onClick={() => props.onChange(props.value - 1)}
-      >
-        <Minus className="size-4" />
-      </Button>
-      <span className="w-8 text-center text-base font-semibold tabular-nums">{props.value}</span>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        className="size-11 rounded-full"
-        aria-label={`More ${props.label}`}
-        disabled={props.value >= props.max}
-        onClick={() => props.onChange(props.value + 1)}
-      >
-        <Plus className="size-4" />
-      </Button>
-    </div>
-  );
-}
-
 export function ItemSheet(props: {
   target: ItemSheetTarget | null;
   onClose: () => void;
   onSubmit: (line: CartItem, index?: number) => void;
 }) {
   const { menu, money } = useDineIn();
-  const { target } = props;
+  // Keep showing the last item while the panel slides away.
+  const [shown, setShown] = useState<ItemSheetTarget | null>(null);
   const [line, setLine] = useState<CartItem | null>(null);
   const [showErrors, setShowErrors] = useState(false);
   const groupRefs = useRef<Record<string, HTMLElement | null>>({});
 
-  useEffect(() => {
-    if (!target) return;
+  // A new target starts a fresh line before anything renders with the old one.
+  if (props.target && props.target !== shown) {
+    setShown(props.target);
     setShowErrors(false);
-    setLine(target.line ?? newCartItem(menu, target.item));
-    // Only when the sheet opens for a new target.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target]);
+    setLine(props.target.line ?? newCartItem(menu, props.target.item));
+    return null; // React re-renders straight away with the new state
+  }
 
+  const target = props.target ?? shown;
   if (!target || !line) return null;
   const item = target.item;
   const options = itemOptions(menu, item);
@@ -101,186 +64,164 @@ export function ItemSheet(props: {
   };
 
   return (
-    <Sheet open onOpenChange={(open) => !open && props.onClose()}>
-      <SheetContent
-        side="bottom"
-        className="mx-auto max-h-[92dvh] w-full max-w-[480px] gap-0 overflow-y-auto rounded-t-3xl p-0 sm:max-w-[480px]"
-      >
-        {item.image_url ? (
-          <img
-            src={item.image_url}
-            alt={item.name}
-            loading="lazy"
-            className="h-44 w-full object-cover"
-          />
+    <Panel
+      open={props.target !== null}
+      onClose={props.onClose}
+      title={item.name}
+      centerTitle
+      footer={
+        <button
+          type="button"
+          className={cn(btn.primary, "h-[52px] w-full text-base")}
+          onClick={submit}
+        >
+          {editing ? "Update order" : "Add to order"} · {money(lineTotal(line))}
+        </button>
+      }
+    >
+      <div className="space-y-6 pt-1">
+        {item.image_url || item.description || item.allergens.length > 0 ? (
+          <div className="space-y-3">
+            {item.image_url ? (
+              <img
+                src={item.image_url}
+                alt={item.name}
+                loading="lazy"
+                className="h-44 w-full rounded-2xl border border-border object-cover"
+              />
+            ) : null}
+            {item.description ? (
+              <p className="text-[15px] leading-relaxed text-foreground/75">{item.description}</p>
+            ) : null}
+            {item.allergens.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {item.allergens.map((a) => (
+                  <span
+                    key={a}
+                    className="rounded-md bg-surface px-2 py-0.5 text-xs text-muted-foreground"
+                  >
+                    {a}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
         ) : null}
-        <SheetHeader className="gap-1 pb-2 text-left">
-          <SheetTitle className="text-xl">{item.name}</SheetTitle>
-          {item.description ? (
-            <p className="text-sm text-muted-foreground">{item.description}</p>
-          ) : null}
-          {item.allergens.length > 0 ? (
-            <div className="mt-1 flex flex-wrap gap-1">
-              {item.allergens.map((a) => (
-                <Badge key={a} variant="secondary" className="text-[11px] font-normal">
-                  {a}
-                </Badge>
+
+        {options.variants.length > 0 ? (
+          <section>
+            <h3 className={cn(sectionTitle, "mb-2.5")}>Size</h3>
+            <div className="grid grid-cols-3 gap-2">
+              {options.variants.map((v) => (
+                <OptionChip
+                  key={v.id}
+                  picked={line.variant?.id === v.id}
+                  onClick={() => setLine(withVariant(line, v))}
+                  label={v.name}
+                  hint={
+                    v.price_delta !== 0
+                      ? `${v.price_delta > 0 ? "+" : "−"}${money(Math.abs(v.price_delta))}`
+                      : null
+                  }
+                />
               ))}
             </div>
-          ) : null}
-        </SheetHeader>
+          </section>
+        ) : null}
 
-        <div className="space-y-6 px-4 pb-40">
-          {options.variants.length > 0 ? (
-            <section>
-              <h3 className="mb-2 text-sm font-semibold">Size</h3>
-              <div className="space-y-2">
-                {options.variants.map((v) => {
-                  const picked = line.variant?.id === v.id;
+        {options.modifiers.map((groupOptions) => {
+          const { group, choices, min, max } = groupOptions;
+          const pickedCount = line.addons.filter((a) => a.id.startsWith(`mod:${group.id}:`)).length;
+          const full = pickedCount >= max;
+          const invalid = showErrors && missing.some((m) => m.group.id === group.id);
+          return (
+            <section
+              key={group.id}
+              ref={(el) => {
+                groupRefs.current[group.id] = el;
+              }}
+            >
+              <h3 className="mb-2.5">
+                <span className={sectionTitle}>{group.name}</span>
+                <span className="text-sm text-muted-foreground">
+                  {" · "}
+                  {max === 1 ? "choose 1" : `choose up to ${max}`}
+                  {min > 0 ? " · required" : ""}
+                </span>
+              </h3>
+              <div className="grid grid-cols-3 gap-2">
+                {choices.map((choice) => {
+                  const picked = isChoicePicked(line, group.id, choice.index);
                   return (
-                    <button
-                      key={v.id}
-                      type="button"
-                      onClick={() => setLine(withVariant(line, v))}
-                      className={cn(
-                        "flex min-h-11 w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
-                        picked ? "border-primary bg-primary/5" : "border-border",
-                      )}
-                      aria-pressed={picked}
-                    >
-                      <span>{v.name}</span>
-                      {v.price_delta !== 0 ? (
-                        <span className="tabular-nums text-muted-foreground">
-                          {v.price_delta > 0 ? "+" : "−"}
-                          {money(Math.abs(v.price_delta))}
-                        </span>
-                      ) : null}
-                    </button>
+                    <OptionChip
+                      key={choice.index}
+                      picked={picked}
+                      disabled={!picked && full && max > 1}
+                      onClick={() => setLine(toggleChoice(line, group, choice))}
+                      label={choice.label}
+                      hint={choice.price > 0 ? `+${money(choice.price)}` : null}
+                    />
                   );
                 })}
               </div>
+              {invalid ? (
+                <p className="mt-2 text-sm font-medium text-destructive">Please choose one</p>
+              ) : null}
             </section>
-          ) : null}
+          );
+        })}
 
-          {options.modifiers.map((groupOptions) => {
-            const { group, choices, min, max } = groupOptions;
-            const pickedCount = line.addons.filter((a) =>
-              a.id.startsWith(`mod:${group.id}:`),
-            ).length;
-            const full = pickedCount >= max;
-            const invalid = showErrors && missing.some((m) => m.group.id === group.id);
-            return (
-              <section
-                key={group.id}
-                ref={(el) => {
-                  groupRefs.current[group.id] = el;
-                }}
-              >
-                <div className="mb-2 flex items-center gap-2">
-                  <h3 className="text-sm font-semibold">{group.name}</h3>
-                  {min > 0 ? (
-                    <Badge variant="secondary" className="text-[11px]">
-                      Required
-                    </Badge>
-                  ) : null}
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    {max === 1 ? "Choose 1" : `Choose up to ${max}`}
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {choices.map((choice) => {
-                    const picked = isChoicePicked(line, group.id, choice.index);
-                    const disabled = !picked && full && max > 1;
-                    return (
-                      <button
-                        key={choice.index}
-                        type="button"
-                        disabled={disabled}
-                        aria-pressed={picked}
-                        onClick={() => setLine(toggleChoice(line, group, choice))}
-                        className={cn(
-                          "flex min-h-11 w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
-                          picked ? "border-primary bg-primary/5" : "border-border",
-                          disabled && "opacity-50",
-                        )}
-                      >
-                        <span>{choice.label}</span>
-                        {choice.price > 0 ? (
-                          <span className="tabular-nums text-muted-foreground">
-                            +{money(choice.price)}
-                          </span>
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-                {invalid ? (
-                  <p className="mt-2 text-sm font-medium text-destructive">Please choose one</p>
-                ) : null}
-              </section>
-            );
-          })}
-
-          {options.addons.length > 0 ? (
-            <section>
-              <h3 className="mb-2 text-sm font-semibold">Extras</h3>
-              <div className="space-y-2">
-                {options.addons.map((addon) => (
-                  <div
-                    key={addon.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-border px-4 py-2"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm">{addon.name}</p>
-                      <p className="text-xs tabular-nums text-muted-foreground">
-                        +{money(addon.price)}
-                      </p>
-                    </div>
-                    <Stepper
-                      value={addonQuantity(line, addon.id)}
-                      min={0}
-                      max={addon.max_quantity}
-                      label={addon.name}
-                      onChange={(n) => setLine(setAddonQuantity(line, addon, n))}
-                    />
-                  </div>
-                ))}
-              </div>
-            </section>
-          ) : null}
-
+        {options.addons.length > 0 ? (
           <section>
-            <label htmlFor="line-note" className="mb-2 block text-sm font-semibold">
-              Anything the kitchen should know?
-            </label>
-            <Textarea
-              id="line-note"
-              maxLength={MAX_NOTE}
-              value={line.notes ?? ""}
-              placeholder="No onions, please"
-              onChange={(e) => setLine({ ...line, notes: e.target.value || null })}
-              className="rounded-xl"
-            />
+            <h3 className={cn(sectionTitle, "mb-1")}>Extras</h3>
+            <div className="divide-y divide-border/60">
+              {options.addons.map((addon) => (
+                <div key={addon.id} className="flex items-center justify-between gap-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-[15px] text-foreground/85">{addon.name}</p>
+                    <p className="text-xs tabular-nums text-muted-foreground">
+                      +{money(addon.price)}
+                    </p>
+                  </div>
+                  <Stepper
+                    value={addonQuantity(line, addon.id)}
+                    min={0}
+                    max={addon.max_quantity}
+                    label={addon.name}
+                    onChange={(n) => setLine(setAddonQuantity(line, addon, n))}
+                  />
+                </div>
+              ))}
+            </div>
           </section>
+        ) : null}
 
-          <section className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Quantity</h3>
-            <Stepper
-              value={line.quantity}
-              min={1}
-              max={99}
-              label="of this item"
-              onChange={(n) => setLine(withQuantity(line, n))}
-            />
-          </section>
-        </div>
+        <section className="flex items-center justify-between gap-3">
+          <h3 className={sectionTitle}>Quantity</h3>
+          <Stepper
+            value={line.quantity}
+            min={1}
+            max={99}
+            label="of this item"
+            onChange={(n) => setLine(withQuantity(line, n))}
+          />
+        </section>
 
-        <div className="sticky bottom-0 border-t border-border bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-          <Button size="lg" className="h-12 w-full rounded-xl text-base" onClick={submit}>
-            {editing ? "Update" : "Add to order"} · {money(lineTotal(line))}
-          </Button>
-        </div>
-      </SheetContent>
-    </Sheet>
+        <section>
+          <label htmlFor="line-note" className={cn(sectionTitle, "mb-2.5 block")}>
+            Item note
+          </label>
+          <textarea
+            id="line-note"
+            rows={2}
+            maxLength={MAX_NOTE}
+            value={line.notes ?? ""}
+            placeholder="e.g. No onions"
+            onChange={(e) => setLine({ ...line, notes: e.target.value || null })}
+            className={cn(field, "min-h-[52px] resize-none py-3.5")}
+          />
+        </section>
+      </div>
+    </Panel>
   );
 }

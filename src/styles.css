@@ -59,77 +59,120 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-surface: var(--surface);
+  --color-field: var(--field);
+  --color-brand: var(--brand);
+  --color-brand-light: var(--brand-light);
+  --color-success: var(--success);
+  --color-success-text: var(--success-text);
+  --color-success-soft: var(--success-soft);
+  --color-success-line: var(--success-line);
+  --color-online: var(--online);
+  --color-offline: var(--offline);
+  --color-info: var(--info);
+  --color-info-line: var(--info-line);
+  --color-info-soft: var(--info-soft);
+  --color-info-wash: var(--info-wash);
+  --color-info-muted: var(--info-muted);
+  --color-info-text: var(--info-text);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-line: var(--warning-line);
+  --color-warning-text: var(--warning-text);
+  --color-kitchen: var(--kitchen);
+  --color-gold: var(--gold);
+  --color-danger-soft: var(--danger-soft);
+  --color-guest: var(--guest);
+  --color-stat-blue: var(--stat-blue);
+  --color-stat-pink: var(--stat-pink);
+  --color-stat-yellow: var(--stat-yellow);
+  --color-stat-purple: var(--stat-purple);
 }
 
-:root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.704 0.04 256.788);
-}
-
+/*
+ * Hearth palette, sampled from the Hearth Waiter design. The app is dark
+ * only, so :root and .dark carry the same values.
+ */
+:root,
 .dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  color-scheme: dark;
+  --radius: 0.75rem;
+  --background: oklch(0.176 0.012 254.1);
+  --foreground: oklch(0.975 0.005 258.3);
+  --card: oklch(0.242 0.019 258.4);
+  --card-foreground: oklch(0.975 0.005 258.3);
+  --popover: oklch(0.242 0.019 258.4);
+  --popover-foreground: oklch(0.975 0.005 258.3);
+  --primary: oklch(0.681 0.199 41.9);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.285 0.019 248.5);
+  --secondary-foreground: oklch(0.975 0.005 258.3);
+  --muted: oklch(0.226 0.017 264.2);
+  --muted-foreground: oklch(0.712 0.022 257.5);
+  --accent: oklch(0.285 0.019 248.5);
+  --accent-foreground: oklch(0.975 0.005 258.3);
+  --destructive: oklch(0.648 0.22 24.8);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.299 0.021 257.3);
+  --input: oklch(0.322 0.021 254.1);
+  --ring: oklch(0.681 0.199 41.9);
+
+  /* Raised controls: secondary buttons, stepper keys, search. */
+  --surface: oklch(0.285 0.019 248.5);
+  /* Input wells and inner cards. */
+  --field: oklch(0.226 0.017 264.2);
+  /* The "Waiter" / "Dine-in" word in the logo. */
+  --brand: oklch(0.691 0.171 42.5);
+  --brand-light: oklch(0.727 0.166 43.4);
+
+  /* Ready to serve, online. */
+  --success: oklch(0.711 0.188 148);
+  --success-text: oklch(0.802 0.194 151.1);
+  --success-soft: oklch(0.243 0.027 161.8);
+  --success-line: oklch(0.594 0.152 148.6);
+  --online: oklch(0.811 0.222 147.8);
+  --offline: oklch(0.652 0.217 21.8);
+
+  /* Selected options, "Confirmed", accepted waiter calls. */
+  --info: oklch(0.487 0.195 260.7);
+  --info-line: oklch(0.608 0.163 252.5);
+  --info-soft: oklch(0.302 0.095 259.1);
+  --info-wash: oklch(0.236 0.032 242.2);
+  --info-muted: oklch(0.346 0.1 258.1);
+  --info-text: oklch(0.787 0.096 240.2);
+
+  /* "You're offline" card. */
+  --warning-soft: oklch(0.276 0.032 57.8);
+  --warning-line: oklch(0.595 0.177 40.8);
+  --warning-text: oklch(0.864 0.166 96.5);
+
+  /* "Sent to kitchen". */
+  --kitchen: oklch(0.418 0.178 292.5);
+  /* Order totals. */
+  --gold: oklch(0.876 0.152 88.6);
+  /* Behind the lock on "Access unavailable". */
+  --danger-soft: oklch(0.394 0.099 19.4);
+  /* The guest badge next to an order number. */
+  --guest: oklch(0.595 0.221 323.8);
+
+  /* Dashboard numbers. */
+  --stat-blue: oklch(0.708 0.163 245.6);
+  --stat-pink: oklch(0.671 0.187 16.1);
+  --stat-yellow: oklch(0.859 0.147 90.7);
+  --stat-purple: oklch(0.696 0.134 267.2);
+
+  --chart-1: oklch(0.681 0.199 41.9);
+  --chart-2: oklch(0.711 0.188 148);
+  --chart-3: oklch(0.708 0.163 245.6);
+  --chart-4: oklch(0.859 0.147 90.7);
+  --chart-5: oklch(0.671 0.187 16.1);
+  --sidebar: oklch(0.242 0.019 258.4);
+  --sidebar-foreground: oklch(0.975 0.005 258.3);
+  --sidebar-primary: oklch(0.681 0.199 41.9);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.285 0.019 248.5);
+  --sidebar-accent-foreground: oklch(0.975 0.005 258.3);
+  --sidebar-border: oklch(0.299 0.021 257.3);
+  --sidebar-ring: oklch(0.681 0.199 41.9);
 }
 
 @layer base {
@@ -137,8 +180,18 @@
     border-color: var(--color-border);
   }
 
+  html {
+    background-color: var(--color-background);
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family:
+      -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
   }
 }
